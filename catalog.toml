@@ -1,0 +1,12 @@
+[[plugin]]
+id = "mattestanka/screen-toolkit"
+name = "Screen Toolkit"
+version = "1.4.0"
+author = "mattestanka"
+license = "MIT"
+icon = "crosshair"
+description = "Screen tools with NVIDIA-safe capture and GPU-accelerated recording."
+deprecated = false
+plugin_api = 13
+tags = ["recording", "utility", "bar", "panel", "shortcut", "service", "mango", "nvidia"]
+dependencies = ["slurp", "grim", "tesseract", "imagemagick", "zbar", "curl", "ffmpeg", "jq", "gpu-screen-recorder"]
