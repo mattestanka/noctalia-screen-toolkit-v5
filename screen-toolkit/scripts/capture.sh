@@ -2,7 +2,7 @@
 # capture.sh <action> [args...]
 #
 # Actions:
-#   annotate-window          — capture the focused Hyprland window with grim
+#   annotate-window          — select and capture a Mango window with grim
 #                              output: /tmp/screen-toolkit-annotate.png
 #                              stdout: "X,Y WxH" geometry string
 #   palette   <geometry>     — extract 8 dominant hex colours from a captured region
@@ -13,7 +13,7 @@
 # Exit codes:
 #   1 — missing / invalid arguments
 #   2 — capture or decode failed
-#   3 — missing dependency (hyprctl, jq, grim, magick, zbarimg)
+#   3 — missing dependency (mmsg, jq, grim, magick, zbarimg)
 #
 # Used by: service.luau
 
@@ -32,7 +32,7 @@ case "$ACTION" in
 
   annotate-window)
     _require slurp
-    _require hyprctl
+    _require mmsg
     _require jq
     _require grim
     # Crosshair: click the window you want to annotate. slurp blocks until the
@@ -40,16 +40,19 @@ case "$ACTION" in
     PT=$(slurp -p 2>/dev/null) || { echo "ERROR: cancelled" >&2; exit 1; }
     X=$(printf '%s' "$PT" | awk -F'[, ]+' '{print int($1)}')
     Y=$(printf '%s' "$PT" | awk -F'[, ]+' '{print int($2)}')
-    # Snap to the smallest mapped window containing the clicked point.
-    WIN=$(hyprctl clients -j 2>/dev/null | jq -c --argjson x "$X" --argjson y "$Y" '
-        [ .[] | select(.mapped == true)
-          | { at: (.at // [0, 0]), size: (.size // [0, 0]) }
-          | select(.at[0] <= $x and (.at[0] + .size[0]) >= $x
-               and .at[1] <= $y and (.at[1] + .size[1]) >= $y) ]
-        | sort_by(.size[0] * .size[1]) | first' 2>/dev/null)
+    # Mango exposes global logical geometry through mmsg. Snap the click to the
+    # smallest visible client containing it, which handles floating windows
+    # layered over tiled/scroller clients.
+    WIN=$(mmsg get all-clients 2>/dev/null | jq -c --argjson x "$X" --argjson y "$Y" '
+        [ .clients[] | select(.is_visible == true)
+          | { x: (.x // 0), y: (.y // 0), width: (.width // 0), height: (.height // 0) }
+          | select(.width > 0 and .height > 0)
+          | select(.x <= $x and (.x + .width) >= $x
+               and .y <= $y and (.y + .height) >= $y) ]
+        | sort_by(.width * .height) | first' 2>/dev/null)
     [ -n "$WIN" ] && [ "$WIN" != "null" ] \
         || { echo "ERROR: no window at that point" >&2; exit 2; }
-    GEOM=$(printf '%s' "$WIN" | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' 2>/dev/null)
+    GEOM=$(printf '%s' "$WIN" | jq -r '"\(.x | floor),\(.y | floor) \(.width | floor)x\(.height | floor)"' 2>/dev/null)
     [ -n "$GEOM" ] \
         || { echo "ERROR: could not parse window geometry" >&2; exit 2; }
     # grim excludes the cursor by default; moving it would make the picker

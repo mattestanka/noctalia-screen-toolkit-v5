@@ -29,6 +29,12 @@ cat >"$mock_bin/pkill" <<'EOF'
 printf '%s\n' "$*" >"$TEST_PKILL_ARGS"
 EOF
 
+cat >"$mock_bin/mmsg" <<'EOF'
+#!/usr/bin/env bash
+test "$*" = "get all-clients"
+printf '%s\n' '{"clients":[{"is_visible":true,"x":0,"y":0,"width":500,"height":400},{"is_visible":true,"x":5,"y":10,"width":100,"height":80},{"is_visible":false,"x":9,"y":19,"width":5,"height":5}]}'
+EOF
+
 chmod +x "$mock_bin"/*
 
 export PATH="$mock_bin:$PATH"
@@ -40,6 +46,12 @@ rgb=$(
 )
 test "$rgb" = "17 34 51"
 test "$(cat "$TEST_GRIM_ARGS")" = "-g 10,20 1x1 -t png $test_dir/pixel.png"
+
+geometry=$(
+  "$repo_dir/screen-toolkit/scripts/capture.sh" annotate-window
+)
+test "$geometry" = "5,10 100x80"
+test "$(cat "$TEST_GRIM_ARGS")" = "-g 5,10 100x80 /tmp/screen-toolkit-annotate.png"
 
 "$repo_dir/screen-toolkit/scripts/record.sh" stop gpu-screen-recorder
 test "$(cat "$TEST_PKILL_ARGS")" = "-INT -f ^(/.*/)?gpu-screen-recorder"

@@ -8,13 +8,13 @@
 
 id = "mattestanka/screen-toolkit"
 name = "Screen Toolkit"
-version = "1.4.0"
+version = "1.4.1"
 plugin_api = 13
 author = "mattestanka"
 license = "MIT"
 icon = "crosshair"
 description = "Screen tools: color picker, OCR, QR, palette, lens, annotate, measure, and recording."
-tags = ["recording", "utility", "bar", "panel", "shortcut", "service", "hyprland", "niri", "sway"]
+tags = ["recording", "utility", "bar", "panel", "shortcut", "service", "mango", "wayland"]
 dependencies = [
   "slurp",
   "grim",
@@ -30,8 +30,7 @@ dependencies = [
   "stat",
   "pkill",
   "xdg-open",
-  "hyprctl",
-  "niri",
+  "mmsg",
   "swappy",
   "satty",
   "gimp",

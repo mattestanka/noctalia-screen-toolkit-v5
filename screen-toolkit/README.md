@@ -20,6 +20,8 @@ continues the Mango/NVIDIA fixes from the mattestanka v4 fork.
   GIF remains available explicitly.
 - Fullscreen GPU recording uses the desktop portal picker on multi-monitor
   systems and the focused connector directly on a single-monitor system.
+- Window annotation uses Mango's `mmsg` client geometry, including scroller
+  layouts and overlapping floating windows, instead of calling `hyprctl`.
 - Stopping `gpu-screen-recorder` matches its full command line, avoiding the
   Linux 15-byte process-name limit while still sending the clean-finalize
   `SIGINT` signal.
@@ -42,6 +44,7 @@ reported when that feature is started.
 
 - **`slurp`** — region selection
 - **`grim`** — screen capture
+- **`mmsg`** — Mango window discovery for Markup Window
 - Colour picking uses `slurp`, `grim`, and ImageMagick directly; `hyprpicker`
   is intentionally not used because software-cursor frames can corrupt picks.
 - **`tesseract`** — OCR engine (plus your language packs, e.g. `tesseract-data-eng`)
@@ -67,12 +70,9 @@ Optional:
 - **`swappy`** / **`satty`** — annotation editor (Markup tool)
 - **`gimp`** — fallback annotation editor when swappy/satty are missing
 - **`translate-shell`** (`trans`) — OCR translation
-- **hyprctl** — annotate the focused window (Hyprland)
-- **`niri`** — annotate the focused window (Niri)
-
 Compositor support: region tools, measure, annotate and recording work on any
-Wayland compositor with `wlroots` protocols. `Annotate Window` requires Hyprland
-(`hyprctl`) or Niri (`niri msg`).
+Wayland compositor with `wlroots` protocols. `Annotate Window` is integrated
+with Mango through `mmsg`.
 
 ## Usage
 
@@ -105,10 +105,10 @@ Toggle the tools panel (opens the panel matching `panel-mode`):
 noctalia msg plugin mattestanka/screen-toolkit:service all toggle
 ```
 
-For example, bind it to `SUPER+P` in Hyprland:
+For example, bind it to `SUPER+P` in Mango:
 
 ```ini
-bind = SUPER, P, exec, noctalia msg plugin mattestanka/screen-toolkit:service all toggle
+bind=SUPER,p,spawn,noctalia msg plugin mattestanka/screen-toolkit:service all toggle
 ```
 
 Open the standard tools panel:
@@ -149,8 +149,7 @@ not expose a portable cursor flag, so its behavior depends on the compositor.
 - **Markup** captures the region and opens it in `swappy` (or `satty`). Saving
   happens in that editor; satty saves to your screenshot path automatically.
   **Markup Window** shows a crosshair — click the window you want to annotate
-  and it captures that window (Hyprland). On Niri it captures the focused
-  window directly.
+  and Mango's client geometry is used to capture exactly that window.
 - **Measure** reports the region's pixel size and copies it to the clipboard.
 - **OCR** extracts text and copies it to the clipboard. The result includes the
   capture preview and an editable multiline text area, so you can correct, trim,
@@ -183,7 +182,7 @@ All settings live in Settings → Plugins (gear on the plugin's row).
 | `share-skip-popover` | `bool` | `false` | Compatibility setting retained from v4. The v5 result panel copies share links directly. |
 | `record-audio-out` | `bool` | `false` | Record the desktop's audio output. |
 | `record-audio-in` | `bool` | `false` | Record the default microphone. |
-| `hide-cursor` | `bool` | `true` | Exclude the cursor from recordings and screenshots. On Hyprland, screenshots briefly move the pointer off-screen during capture. |
+| `hide-cursor` | `bool` | `true` | Exclude the cursor from recordings and screenshots. |
 | `record-codec` | `select` | `h264` | Codec for `gpu-screen-recorder` fullscreen capture: `h264`, `hevc`, or `av1`. `h264` is the safest NVIDIA NVENC default; `av1` needs a recent GPU. |
 | `record-fps` | `int` | `60` | Frame rate for `gpu-screen-recorder` fullscreen capture (15–240). |
 | `record-skip-confirmation` | `bool` | `false` | Save automatically when a recording ends, skipping the save dialog. |
@@ -252,7 +251,7 @@ Summary of every service command:
 | `measure` | — | Report a region's pixel size |
 | `annotate` | — | Open a region in the annotation editor |
 | `annotateFullscreen` | — | Annotate the full screen |
-| `annotateWindow` | — | Annotate the focused window (Hyprland / Niri) |
+| `annotateWindow` | — | Select and annotate a Mango window |
 | `record` | — | Record a region as MP4 (default) |
 | `recordGif` | — | Record a region as GIF |
 | `recordMp4` | — | Record a region as MP4 |
