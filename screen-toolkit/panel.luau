@@ -50,7 +50,7 @@ end
 -- Capture tools must not see the panel in the frame, so close it first.
 local CAPTURE_ACTIONS = {
   colorPicker = true, ocr = true, qr = true, palette = true, lens = true, measure = true,
-  annotate = true, annotateFullscreen = true, annotateWindow = true,
+  annotate = true, annotateFullscreen = true, annotateWindow = true, drawLive = true,
   record = true, recordGif = true, recordMp4 = true,
   recordFullscreen = true, recordFullscreenGif = true, recordFullscreenMp4 = true,
 }
@@ -93,6 +93,7 @@ local ANNOTATE_TOOLS = {
   { action = "annotate", label_key = "tools.annotate", glyph = "pencil" },
   { action = "annotateFullscreen", label_key = "tools.annotate_fullscreen", glyph = "maximize" },
   { action = "annotateWindow", label_key = "tools.annotate_window", glyph = "window" },
+  { action = "drawLive", label_key = "tools.draw_live", glyph = "brush" },
 }
 
 local RECORD_TOOLS = {
@@ -172,10 +173,7 @@ local function openScreenshotPreview()
     noctalia.notifyError("No screenshot preview available yet. Take a capture first!")
     return
   end
-  if noctalia.commandExists("satty") then noctalia.runAsync("satty --filename " .. shellQuote(targetPath))
-  elseif noctalia.commandExists("swappy") then noctalia.runAsync("swappy -f " .. shellQuote(targetPath))
-  elseif noctalia.commandExists("gimp") then noctalia.runAsync("gimp " .. shellQuote(targetPath))
-  else noctalia.notifyError(tr("messages.missing_dep", { dep = "satty (or swappy/gimp)" })) end
+  send("annotateFile", { path = targetPath })
 end
 
 local function openRecordingPreview()
@@ -438,6 +436,22 @@ function onKey(chord, pressed)
     end
   end
 
+  local function moveRow(direction)
+    local rows = { #TOOLS, #ANNOTATE_TOOLS, #RECORD_TOOLS }
+    local start = 1
+    for row, count in ipairs(rows) do
+      if focusedIndex < start + count then
+        local column = focusedIndex - start
+        local targetRow = (row - 1 + direction) % #rows + 1
+        local targetStart = 1
+        for i = 1, targetRow - 1 do targetStart += rows[i] end
+        return targetStart + math.min(column, rows[targetRow] - 1)
+      end
+      start += count
+    end
+    return 1
+  end
+
   if key == "tab" or key == "right" then
     focusedIndex = (focusedIndex % #items) + 1
   elseif key == "backtab" or key == "left" then
@@ -446,7 +460,7 @@ function onKey(chord, pressed)
     if mode == "legacy" and activeView == "main" then
       focusedIndex = focusedIndex <= 4 and (focusedIndex + 4) or (focusedIndex - 4)
     elseif mode == "standard" then
-      focusedIndex = (focusedIndex <= 6 and math.min(7 + math.floor((focusedIndex - 1) / 2), 9)) or (focusedIndex <= 9 and (10 + (focusedIndex - 7)) or ((focusedIndex - 10) + 1))
+      focusedIndex = moveRow(1)
     else
       focusedIndex = (focusedIndex % #items) + 1
     end
@@ -454,7 +468,7 @@ function onKey(chord, pressed)
     if mode == "legacy" and activeView == "main" then
       focusedIndex = focusedIndex > 4 and (focusedIndex - 4) or (focusedIndex + 4)
     elseif mode == "standard" then
-      focusedIndex = (focusedIndex >= 10 and math.min(7 + (focusedIndex - 10), 9)) or (focusedIndex >= 7 and ((focusedIndex - 7) * 2 + 1) or math.min(10 + math.floor((focusedIndex - 1) / 2), 13))
+      focusedIndex = moveRow(-1)
     else
       focusedIndex = (focusedIndex - 2) % #items + 1
     end

@@ -2,7 +2,8 @@
 # capture.sh <action> [args...]
 #
 # Actions:
-#   annotate-window          — select and capture a Mango window with grim
+#   annotate-region          — freeze the desktop, select and crop a region
+#   annotate-window          — freeze the desktop, select and crop a Mango window
 #                              output: /tmp/screen-toolkit-annotate.png
 #                              stdout: "X,Y WxH" geometry string
 #   palette   <geometry>     — extract 8 dominant hex colours from a captured region
@@ -13,7 +14,8 @@
 # Exit codes:
 #   1 — missing / invalid arguments
 #   2 — capture or decode failed
-#   3 — missing dependency (mmsg, jq, grim, magick, zbarimg)
+#   3 — missing dependency
+#   130 — frozen selection cancelled
 #
 # Used by: service.luau
 
@@ -30,37 +32,12 @@ _require() {
 
 case "$ACTION" in
 
-  annotate-window)
-    _require slurp
-    _require mmsg
-    _require jq
-    _require grim
-    # Crosshair: click the window you want to annotate. slurp blocks until the
-    # click, so there is no timeout and its overlay is never captured.
-    PT=$(slurp -p 2>/dev/null) || { echo "ERROR: cancelled" >&2; exit 1; }
-    X=$(printf '%s' "$PT" | awk -F'[, ]+' '{print int($1)}')
-    Y=$(printf '%s' "$PT" | awk -F'[, ]+' '{print int($2)}')
-    # Mango exposes global logical geometry through mmsg. Snap the click to the
-    # smallest visible client containing it, which handles floating windows
-    # layered over tiled/scroller clients.
-    WIN=$(mmsg get all-clients 2>/dev/null | jq -c --argjson x "$X" --argjson y "$Y" '
-        [ .clients[] | select(.is_visible == true)
-          | { x: (.x // 0), y: (.y // 0), width: (.width // 0), height: (.height // 0) }
-          | select(.width > 0 and .height > 0)
-          | select(.x <= $x and (.x + .width) >= $x
-               and .y <= $y and (.y + .height) >= $y) ]
-        | sort_by(.width * .height) | first' 2>/dev/null)
-    [ -n "$WIN" ] && [ "$WIN" != "null" ] \
-        || { echo "ERROR: no window at that point" >&2; exit 2; }
-    GEOM=$(printf '%s' "$WIN" | jq -r '"\(.x | floor),\(.y | floor) \(.width | floor)x\(.height | floor)"' 2>/dev/null)
-    [ -n "$GEOM" ] \
-        || { echo "ERROR: could not parse window geometry" >&2; exit 2; }
-    # grim excludes the cursor by default; moving it would make the picker
-    # unreliable and is compositor-specific.
-     sleep 0.15
-     grim "${GRIM_CURSOR_ARGS[@]}" -g "$GEOM" /tmp/screen-toolkit-annotate.png 2>/dev/null \
-        || { echo "ERROR: grim capture failed" >&2; exit 2; }
-    printf '%s\n' "$GEOM"
+  annotate-region|annotate-window)
+    SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+    ARGS=(--output "${2:-/tmp/screen-toolkit-annotate.png}")
+    [ "$ACTION" = "annotate-window" ] && ARGS+=(--window)
+    [ "${SCREEN_TOOLKIT_CAPTURE_CURSOR:-0}" = "1" ] && ARGS+=(--cursor)
+    exec "$SCRIPT_DIR/frozen-capture.py" "${ARGS[@]}"
     ;;
 
   palette)
@@ -95,7 +72,7 @@ case "$ACTION" in
     ;;
 
   *)
-    echo "ERROR: unknown action '${ACTION}'. Expected: annotate-window | palette | qr" >&2
+    echo "ERROR: unknown action '${ACTION}'. Expected: annotate-region | annotate-window | palette | qr" >&2
     exit 1
     ;;
 

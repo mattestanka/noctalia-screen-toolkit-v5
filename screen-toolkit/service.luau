@@ -19,6 +19,7 @@ local PANEL_ID = "mattestanka/screen-toolkit:panel"
 local LEGACY_PANEL_ID = "mattestanka/screen-toolkit:panel-legacy"
 local RESULT_PANEL_ID = "mattestanka/screen-toolkit:result"
 
+local SCRIPT_ANNOTATE = noctalia.pluginDir() .. "/scripts/annotate.sh"
 local SCRIPT_CAPTURE = noctalia.pluginDir() .. "/scripts/capture.sh"
 local SCRIPT_OCR = noctalia.pluginDir() .. "/scripts/ocr.sh"
 local SCRIPT_LENS = noctalia.pluginDir() .. "/scripts/lens-upload.sh"
@@ -111,7 +112,7 @@ local function focusedGeometry()
 end
 
 local function parseGeometry(geom)
-  local gx, gy, gw, gh = geom:match("^(%d+),(%d+)%s+(%d+)x(%d+)$")
+  local gx, gy, gw, gh = geom:match("^(%-?%d+),(%-?%d+)%s+(%d+)x(%d+)$")
   if not gx then return nil end
   return tonumber(gx), tonumber(gy), tonumber(gw), tonumber(gh)
 end
@@ -495,33 +496,46 @@ end
 local function openAnnotator(file)
   publish("activeTool", "annotate")
   publish("annotateResult", { capturePath = file })
-  if noctalia.commandExists("swappy") then
-    noctalia.runAsync(`swappy -f {shellQuote(file)}`)
-  elseif noctalia.commandExists("satty") then
-    local destDir = screenshotDir()
-    local out = `{destDir}/{buildFilename("annotate", ".png")}`
-    noctalia.runAsync(`satty --filename {shellQuote(file)} --output-filename {shellQuote(out)}`)
-  elseif noctalia.commandExists("gimp") then
-    noctalia.runAsync(`gimp {shellQuote(file)}`)
+  if noctalia.commandExists("satty") or noctalia.commandExists("swappy") or noctalia.commandExists("gimp") then
+    local out = `{screenshotDir()}/{buildFilename("annotate", ".png")}`
+    local editorEnv = ""
+    local focusedOutput = noctalia.focusedOutputName()
+    for _, output in ipairs(noctalia.outputs() or {}) do
+      if output.name == focusedOutput then
+        editorEnv = `SCREEN_TOOLKIT_EDITOR_WIDTH={math.floor(output.width)} SCREEN_TOOLKIT_EDITOR_HEIGHT={math.floor(output.height)} `
+        break
+      end
+    end
+    -- Editors are interactive and must stay open beyond runAsync's timeout.
+    noctalia.runStream(`{editorEnv}{shellQuote(SCRIPT_ANNOTATE)} {shellQuote(file)} {shellQuote(out)} 2>&1`, function(line)
+      log(line)
+    end)
   else
-    -- No annotation editor installed: hand the capture over via the clipboard
-    -- so the tool still does something useful.
     copyFileUri(file)
     noctalia.notify(noctalia.tr("messages.no_annotator"))
-    return
   end
 end
 
+local function frozenAnnotation(action)
+  if slurping then
+    noctalia.notify(noctalia.tr("panel.running"))
+    return
+  end
+  slurping = true
+  noctalia.runAsync(`noctalia msg panel-close >/dev/null; sleep 0.3; {captureEnv()}{shellQuote(SCRIPT_CAPTURE)} {action} {shellQuote(ANNOTATE_PNG)}`, function(res)
+    slurping = false
+    if res.exitCode == 130 then return end -- Escape/right-click: no stale editor
+    if res.exitCode ~= 0 then
+      local detail = trim(res.stderr or "")
+      noctalia.notifyError(detail ~= "" and detail or noctalia.tr("messages.capture_failed"))
+      return
+    end
+    openAnnotator(ANNOTATE_PNG)
+  end, 600000)
+end
+
 local function annotateRegion()
-  slurpGeometry(function(geom)
-    grimRegion(geom, ANNOTATE_PNG, function(res)
-      if res.exitCode ~= 0 then
-        noctalia.notifyError(noctalia.tr("messages.capture_failed"))
-        return
-      end
-      openAnnotator(ANNOTATE_PNG)
-    end)
-  end)
+  frozenAnnotation("annotate-region")
 end
 
 local function annotateFullscreen()
@@ -543,16 +557,16 @@ local function annotateFullscreen()
 end
 
 local function annotateWindow()
-  if not noctalia.commandExists("mmsg") then
-    noctalia.notifyError(noctalia.tr("messages.missing_dep", { dep = "mmsg" }))
-    return
-  end
-  noctalia.runAsync(`sleep {CAPTURE_DELAY}; {captureEnv()}{SCRIPT_CAPTURE} annotate-window`, function(res)
+  frozenAnnotation("annotate-window")
+end
+
+local function drawLive()
+  -- Native annotation starts transparent; the background keeps updating.
+  -- The user can explicitly freeze it later with F or the Freeze button.
+  noctalia.runAsync("noctalia msg panel-close >/dev/null; sleep 0.3; noctalia msg annotate", function(res)
     if res.exitCode ~= 0 then
-      noctalia.notifyError(noctalia.tr("messages.capture_failed"))
-      return
+      noctalia.notifyError(trim(res.stderr or "") ~= "" and trim(res.stderr) or noctalia.tr("messages.live_draw_failed"))
     end
-    openAnnotator(ANNOTATE_PNG)
   end)
 end
 
@@ -941,7 +955,12 @@ end
 
 local HANDLERS = {
   colorPicker = runColorPicker, ocr = runOcr, qr = runQr, palette = runPalette, lens = runLens, measure = runMeasure,
-  annotate = annotateRegion, annotateFullscreen = annotateFullscreen, annotateWindow = annotateWindow,
+  annotate = annotateRegion, annotateFullscreen = annotateFullscreen, annotateWindow = annotateWindow, drawLive = drawLive,
+  annotateFile = function(payload)
+    if type(payload) == "table" and type(payload.path) == "string" and noctalia.fileExists(payload.path) then
+      openAnnotator(payload.path)
+    end
+  end,
   record = function() runRecordRegion("mp4") end,
   recordGif = function() runRecordRegion("gif") end,
   recordMp4 = function() runRecordRegion("mp4") end,

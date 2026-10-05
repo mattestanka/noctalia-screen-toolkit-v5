@@ -1,8 +1,8 @@
 # Screen Toolkit
 
 A Noctalia v5 plugin for color picking, OCR, QR/barcode scanning, palette
-extraction, Google Lens search, annotation, pixel measuring, screen recording,
-and image sharing.
+extraction, Google Lens search, screenshot annotation, live drawing, pixel
+measuring, screen recording, and image sharing.
 
 ## Attribution
 
@@ -25,10 +25,22 @@ continues the Mango/NVIDIA fixes from the mattestanka v4 fork.
 - Stopping `gpu-screen-recorder` matches its full command line, avoiding the
   Linux 15-byte process-name limit while still sending the clean-finalize
   `SIGINT` signal.
-- V5 already avoids the old annotation-overlay capture race by closing the
-  Noctalia panel before `slurp`/`grim` and handing the result to Satty/Swappy.
-  The decorative v4 QML annotation frame is not portable because v5 delegates
-  annotation UI to that external editor.
+- Markup and Markup Window freeze a desktop snapshot before selection and crop
+  that saved frame. Animations and changing content stay still while selecting.
+- Satty opens as a floating popup sized to fit the current monitor, including
+  when reopening a screenshot preview, so tiling cannot clip its toolbars. Satty
+  is preferred over Swappy when both are installed. The popup omits the window
+  title bar; press **Escape** to close it. On Mango, hold **Super** and drag with the **left mouse button**
+  anywhere on the popup to move it freely (the standard Mango `moveresize,curmove`
+  mouse binding). Plain title-bar dragging is not handled by Mango.
+- Small captures get a 560-pixel minimum editor height instead of collapsing to
+  a thin strip. The popup is capped to the focused monitor's logical dimensions,
+  with a smaller minimum on short displays. A private editor profile adds a dark
+  canvas, rounded toolbar groups and clearer selection colors while retaining
+  your Satty brushes, palette, fonts and shortcuts. Your
+  existing Satty and GTK configuration files are not modified.
+- Draw Live uses Noctalia's native transparent annotation overlay to draw over
+  running applications. The background stays live until you explicitly freeze it.
 
 ## Plugin
 
@@ -45,6 +57,13 @@ reported when that feature is started.
 - **`slurp`** — region selection
 - **`grim`** — screen capture
 - **`mmsg`** — Mango window discovery for Markup Window
+- **system Python 3** (`/usr/bin/python3`) + **PyGObject**, **pycairo**, **GTK 3**,
+  and **gtk-layer-shell** — frozen region/window selection. System Python also
+  prepares the Satty popup's private style profile. On Arch:
+  `sudo pacman -S python python-gobject python-cairo gtk3 gtk-layer-shell`.
+  The helper uses distro Python so virtualenv/mise environments cannot hide GI
+  bindings.
+- **Noctalia 5.2+** — Draw Live (`noctalia msg annotate`)
 - Colour picking uses `slurp`, `grim`, and ImageMagick directly; `hyprpicker`
   is intentionally not used because software-cursor frames can corrupt picks.
 - **`tesseract`** — OCR engine (plus your language packs, e.g. `tesseract-data-eng`)
@@ -146,10 +165,17 @@ disabled, the plugin passes grim's `-c` flag to include it. gpu-screen-recorder
 and wl-screenrec receive their corresponding cursor options. wf-recorder does
 not expose a portable cursor flag, so its behavior depends on the compositor.
 
-- **Markup** captures the region and opens it in `swappy` (or `satty`). Saving
-  happens in that editor; satty saves to your screenshot path automatically.
-  **Markup Window** shows a crosshair — click the window you want to annotate
-  and Mango's client geometry is used to capture exactly that window.
+- **Markup** freezes the desktop before the region crosshair appears, then opens
+  the selected part of that snapshot in a floating Satty popup (or Swappy/GIMP as
+  fallbacks). Saving happens in that editor; Satty saves to your configured
+  screenshot path. Escape/right-click cancels selection without opening an editor.
+  **Markup Window** freezes first too: click a visible Mango window to crop its
+  client geometry from the snapshot. **Markup FS** captures the focused monitor.
+- **Draw Live** is in the standard markup row and the legacy Markup subpanel.
+  Draw directly over running apps with the native Noctalia toolbar. Press Escape
+  to close, or F/the Freeze button to freeze the background when desired. Its
+  Copy/Save controls use Settings → Screenshot output settings; screenshot
+  markup in Satty continues to use this plugin's screenshot path.
 - **Measure** reports the region's pixel size and copies it to the clipboard.
 - **OCR** extracts text and copies it to the clipboard. The result includes the
   capture preview and an editable multiline text area, so you can correct, trim,
@@ -205,6 +231,7 @@ noctalia msg plugin mattestanka/screen-toolkit:service all measure
 noctalia msg plugin mattestanka/screen-toolkit:service all annotate
 noctalia msg plugin mattestanka/screen-toolkit:service all annotateFullscreen
 noctalia msg plugin mattestanka/screen-toolkit:service all annotateWindow
+noctalia msg plugin mattestanka/screen-toolkit:service all drawLive
 noctalia msg plugin mattestanka/screen-toolkit:service all record
 noctalia msg plugin mattestanka/screen-toolkit:service all recordGif
 noctalia msg plugin mattestanka/screen-toolkit:service all recordMp4
@@ -251,7 +278,8 @@ Summary of every service command:
 | `measure` | — | Report a region's pixel size |
 | `annotate` | — | Open a region in the annotation editor |
 | `annotateFullscreen` | — | Annotate the full screen |
-| `annotateWindow` | — | Select and annotate a Mango window |
+| `annotateWindow` | — | Select and annotate a frozen Mango window |
+| `drawLive` | — | Draw over the live desktop (Noctalia 5.2+) |
 | `record` | — | Record a region as MP4 (default) |
 | `recordGif` | — | Record a region as GIF |
 | `recordMp4` | — | Record a region as MP4 |

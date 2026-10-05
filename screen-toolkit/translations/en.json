@@ -24,7 +24,8 @@
     "share_missing_dep": "Share failed: missing dependency (curl/jq).",
     "share_request_failed": "Upload request failed.",
     "share_unknown_error": "Upload failed with unknown error.",
-    "translate_failed": "Translation failed."
+    "translate_failed": "Translation failed.",
+    "live_draw_failed": "Could not open live drawing. This tool requires Noctalia 5.2 or newer."
   },
   "ocr": {
     "exit_args": "Invalid capture arguments.",
@@ -192,7 +193,8 @@
     "record_fullscreen_mp4": "Rec FS",
     "record_gif": "GIF",
     "record_mp4": "Record",
-    "window": "Window"
+    "window": "Window",
+    "draw_live": "Draw Live"
   },
   "tooltips": {
     "annotate": "Draw and annotate a region",
@@ -205,7 +207,8 @@
     "palette": "Extract dominant colors from a region",
     "qr": "Scan a QR or barcode",
     "record": "Record a screen region as GIF or MP4",
-    "record_fullscreen": "Record the entire screen"
+    "record_fullscreen": "Record the entire screen",
+    "draw_live": "Draw over the live desktop without freezing it"
   },
   "widget": {
     "recording": "Recording — click to stop",

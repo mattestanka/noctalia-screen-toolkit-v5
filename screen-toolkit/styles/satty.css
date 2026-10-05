@@ -1,0 +1,76 @@
+/* Only loaded by Screen Toolkit's private editor profile. */
+@define-color toolkit_canvas #171a24;
+@define-color toolkit_panel #222633;
+@define-color toolkit_border #363d50;
+@define-color toolkit_text #e5e9f5;
+@define-color toolkit_muted #9da8bf;
+@define-color toolkit_accent #a7b8f5;
+
+window.root,
+window.root .outer_box,
+window.root .inner_box {
+    background-color: @toolkit_canvas;
+    color: @toolkit_text;
+}
+
+window.root .toolbar {
+    padding: 6px 8px;
+    margin: 8px 12px;
+    background-color: @toolkit_panel;
+    color: @toolkit_text;
+    border: 1px solid @toolkit_border;
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16);
+}
+
+window.root .toolbar button {
+    min-width: 24px;
+    min-height: 28px;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background-image: none;
+    background-color: transparent;
+    color: @toolkit_muted;
+    box-shadow: none;
+}
+
+window.root .toolbar button:hover {
+    background-color: #30374a;
+    color: @toolkit_text;
+}
+
+window.root .toolbar button:checked,
+window.root .toolbar button.editing {
+    background-color: @toolkit_accent;
+    color: #181c2b;
+}
+
+window.root .toolbar button:disabled {
+    opacity: 0.35;
+}
+
+window.root .toolbar separator {
+    min-width: 1px;
+    margin: 6px 4px;
+    background-color: @toolkit_border;
+}
+
+window.root .toolbar .size-button {
+    min-width: 26px;
+    min-height: 28px;
+    padding: 4px;
+}
+
+window.root .toolbar spinbutton {
+    background-color: #171c28;
+    color: @toolkit_text;
+    border: 1px solid @toolkit_border;
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+window.root .toolbar spinbutton button {
+    min-width: 16px;
+    padding: 2px;
+}

@@ -13,11 +13,12 @@ plugin_api = 13
 author = "mattestanka"
 license = "MIT"
 icon = "crosshair"
-description = "Screen tools: color picker, OCR, QR, palette, lens, annotate, measure, and recording."
+description = "Screen tools: frozen screenshots, live drawing, color picker, OCR, QR, palette, lens, measure, and recording."
 tags = ["recording", "utility", "bar", "panel", "shortcut", "service", "mango", "wayland"]
 dependencies = [
   "slurp",
   "grim",
+  "python3",
   "tesseract",
   "imagemagick",
   "zbar",
