@@ -12,6 +12,8 @@
 -- includes it.
 
 local activeView = "main"
+local drawReturnView = "main"
+local drawOutputs = {}
 local recordAudioOut = (noctalia.getConfig("record-audio-out") == true)
 local recordAudioIn = false
 local hoveredAudioIn = false
@@ -50,16 +52,24 @@ end
 -- Capture tools must not see the panel in the frame, so close it first.
 local CAPTURE_ACTIONS = {
   colorPicker = true, ocr = true, qr = true, palette = true, lens = true, measure = true,
-  annotate = true, annotateFullscreen = true, annotateWindow = true, drawLive = true,
+  annotate = true, annotateFullscreen = true, annotateWindow = true,
+  drawLive = true, drawLiveOnMonitor = true,
   record = true, recordGif = true, recordMp4 = true,
   recordFullscreen = true, recordFullscreenGif = true, recordFullscreenMp4 = true,
 }
 
-local function runTool(action)
+local function runTool(action, payload)
+  if action == "view_draw_live" then
+    drawOutputs = noctalia.outputs() or {}
+    drawReturnView, activeView = activeView, "draw_live"
+    hoveredTool, focusedIndex = nil, 0
+    render()
+    return
+  end
   if action == "recordGif" or action == "recordFullscreenGif" then noctalia.state.set("recordFormat", "gif")
   elseif action == "record" or action == "recordMp4" or action == "recordFullscreen" or action == "recordFullscreenMp4" then noctalia.state.set("recordFormat", "mp4") end
   if CAPTURE_ACTIONS[action] then panel.close() end
-  send(action)
+  send(action, payload)
 end
 
 local RECORD_THUMB = "/tmp/screen-toolkit-record-thumb.png"
@@ -93,7 +103,7 @@ local ANNOTATE_TOOLS = {
   { action = "annotate", label_key = "tools.annotate", glyph = "pencil" },
   { action = "annotateFullscreen", label_key = "tools.annotate_fullscreen", glyph = "maximize" },
   { action = "annotateWindow", label_key = "tools.annotate_window", glyph = "window" },
-  { action = "drawLive", label_key = "tools.draw_live", glyph = "brush" },
+  { action = "view_draw_live", label_key = "tools.draw_live", glyph = "brush" },
 }
 
 local RECORD_TOOLS = {
@@ -118,6 +128,13 @@ local TOOLS_LEGACY = {
 -- ── Keyboard Navigation State & Helpers ────────────────────────────────────
 
 local function getActiveItems()
+  if activeView == "draw_live" then
+    local list = { { type = "back" }, { type = "tool", action = "drawLive" } }
+    for _, output in ipairs(drawOutputs) do
+      table.insert(list, { type = "monitor", id = "monitor-" .. output.name, name = output.name })
+    end
+    return list
+  end
   local mode = getMode()
   if mode == "standard" then
     local list = {}
@@ -159,7 +176,7 @@ local function updateFocusedTool()
   if cur then
     if cur.type == "tool" then focusedTool = cur.action
     elseif cur.type == "legacy_tile" then focusedTool = cur.item.id
-    else focusedTool = cur.type end
+    else focusedTool = cur.id or cur.type end
   else
     focusedTool = nil
   end
@@ -217,7 +234,7 @@ local function setHoveredTool(action)
   hoveredTool = action
   if action then
     for idx, item in ipairs(getActiveItems()) do
-      local id = (item.type == "tool") and item.action or ((item.type == "legacy_tile") and item.item.id or item.type)
+      local id = item.id or item.action or (item.item and item.item.id) or item.type
       if id == action then focusedIndex = idx; break end
     end
   else
@@ -265,6 +282,11 @@ local function legacyHeader()
   })
 end
 
+local function goBack()
+  activeView = if activeView == "draw_live" then drawReturnView else "main"
+  hoveredTool, focusedIndex = nil, 0
+end
+
 local function SubpanelHeader(title)
   local isBackFocused = hoveredBack or (focusedTool == "back")
   return ui.row({ align = "center", gap = 5 }, {
@@ -274,7 +296,7 @@ local function SubpanelHeader(title)
       key = "back-button", height = 30, width = 30, paddingH = 0, radius = 9,
       fill = isBackFocused and "primary/0.12" or "surface", border = isBackFocused and "primary" or "surface", borderWidth = 1,
       align = "center", justify = "center",
-      onClick = function() activeView = "main"; focusedIndex = 0; updateFocusedTool(); render() end,
+      onClick = function() goBack(); render() end,
       onHover = function(state) setHoveredTool((state == "true") and "back" or nil); render() end,
     }, {
       ui.row({ align = "center", justify = "center", gap = 4 }, {
@@ -314,18 +336,36 @@ end
 -- Subpanels for legacy mode: annotate and record.
 
 local function subpanelButton(t, paddingV)
-  local isFocused = (hoveredTool == t.action) or (focusedTool == t.action)
+  local id = t.id or t.action
+  local isFocused = (hoveredTool == id) or (focusedTool == id)
   local color = isFocused and "primary" or "on_surface"
   return ui.column({
-    key = "btn-" .. t.action, paddingV = paddingV, paddingH = 5, radius = 8,
+    key = "btn-" .. id, paddingV = paddingV, paddingH = 5, radius = 8,
     fill = isFocused and "primary/0.12" or "surface", border = isFocused and "primary" or "surface", borderWidth = 1,
-    onClick = function() runTool(t.action) end,
-    onHover = function(state) setHoveredTool((state == "true") and t.action or nil); render() end,
+    onClick = function() runTool(t.action, t.payload) end,
+    onHover = function(state) setHoveredTool((state == "true") and id or nil); render() end,
   }, {
     ui.row({ align = "center", gap = 6 }, {
       ui.glyph({ name = t.glyph, size = 15, color = color }),
-      ui.label({ text = tr(t.label_key), fontSize = 12, fontWeight = "bold", color = color }),
+      ui.label({ text = t.label or tr(t.label_key), fontSize = 12, fontWeight = "bold", color = color }),
     }),
+  })
+end
+
+local function DrawLiveSubpanel()
+  local buttons = {}
+  for _, output in ipairs(drawOutputs) do
+    table.insert(buttons, subpanelButton({
+      id = "monitor-" .. output.name, action = "drawLiveOnMonitor", payload = output.name,
+      glyph = "maximize", label = string.format("%s  ·  %d × %d", output.name, output.width, output.height),
+    }, 7))
+  end
+  return ui.column({ flexGrow = 1, gap = 8 }, {
+    SubpanelHeader(tr("tools.draw_live")),
+    subpanelButton({ action = "drawLive", label_key = "panel.draw_native", glyph = "brush" }, 8),
+    ui.label({ text = tr("panel.draw_native_hint"), fontSize = 11, color = "on_surface_variant" }),
+    ui.label({ text = tr("panel.draw_interactive"), fontSize = 12, color = "on_surface_variant" }),
+    ui.scroll({ flexGrow = 1, gap = 4 }, buttons),
   })
 end
 
@@ -459,7 +499,7 @@ function onKey(chord, pressed)
   elseif key == "down" then
     if mode == "legacy" and activeView == "main" then
       focusedIndex = focusedIndex <= 4 and (focusedIndex + 4) or (focusedIndex - 4)
-    elseif mode == "standard" then
+    elseif mode == "standard" and activeView == "main" then
       focusedIndex = moveRow(1)
     else
       focusedIndex = (focusedIndex % #items) + 1
@@ -467,7 +507,7 @@ function onKey(chord, pressed)
   elseif key == "up" then
     if mode == "legacy" and activeView == "main" then
       focusedIndex = focusedIndex > 4 and (focusedIndex - 4) or (focusedIndex + 4)
-    elseif mode == "standard" then
+    elseif mode == "standard" and activeView == "main" then
       focusedIndex = moveRow(-1)
     else
       focusedIndex = (focusedIndex - 2) % #items + 1
@@ -476,11 +516,12 @@ function onKey(chord, pressed)
     local current = items[focusedIndex]
     if current then
       if current.type == "tool" then runTool(current.action)
+      elseif current.type == "monitor" then runTool("drawLiveOnMonitor", current.name)
       elseif current.type == "legacy_tile" then
         if current.item.action == "view_annotate" then activeView = "annotate"; focusedIndex = 0
         elseif current.item.action == "view_record" then activeView = "record"; focusedIndex = 0
         else runTool(current.item.action) end
-      elseif current.type == "back" then activeView = "main"; focusedIndex = 0
+      elseif current.type == "back" then goBack()
       elseif current.type == "sysAudio" then recordAudioOut = not recordAudioOut; send("setAudioOut", recordAudioOut)
       elseif current.type == "micAudio" then recordAudioIn = not recordAudioIn; send("setAudioIn", recordAudioIn)
       elseif current.type == "stopBtn" then send("recordStop")
@@ -497,7 +538,8 @@ end
 render = function()
   updateFocusedTool()
   local mode = getMode()
-  local body = (mode == "standard" and ui.column({ flexGrow = 1, gap = 6 }, { standardHeader(), standardGrid() }))
+  local body = (activeView == "draw_live" and DrawLiveSubpanel())
+    or (mode == "standard" and ui.column({ flexGrow = 1, gap = 6 }, { standardHeader(), standardGrid() }))
     or (activeView == "annotate" and MarkupSubpanel())
     or (activeView == "record" and RecordSubpanel())
     or ui.column({ flexGrow = 1, gap = 6 }, { legacyHeader(), legacyGrid() })

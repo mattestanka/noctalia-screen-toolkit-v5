@@ -562,13 +562,34 @@ local function annotateWindow()
 end
 
 local function drawLive()
+  local directory = shellQuote(screenshotDir())
+  local pattern = shellQuote(cfg("filename-format") or "%Y-%m-%d_%H-%M-%S")
+  local cursor = if cursorHidden then "--no-show-cursor" else "--show-cursor"
+  -- Noctalia 5.2–5.3 use the shell's screenshot settings for native annotation.
+  local command = "noctalia msg panel-close >/dev/null; sleep 0.3; "
+    .. 'case "$(noctalia msg annotate --help 2>/dev/null)" in '
+    .. `*--filename-pattern*) noctalia msg annotate --no-freeze-screen --save-to-file --format png --directory {directory} --filename-pattern {pattern} {cursor} ;; `
+    .. "*) noctalia msg annotate ;; esac"
+  noctalia.runAsync(command, function(res)
+    if res.exitCode ~= 0 then
+      local detail = trim(res.stderr or "")
+      noctalia.notifyError(detail ~= "" and detail or noctalia.tr("messages.live_draw_failed"))
+    end
+  end)
+end
+
+local function drawLiveOnMonitor(payload)
   local position = ""
-  local focused = noctalia.focusedOutputName()
+  local target = if type(payload) == "string" and payload ~= "" then payload else noctalia.focusedOutputName()
   for _, output in ipairs(noctalia.outputs() or {}) do
-    if output.name == focused then
-      position = ` --position {math.floor(output.x)} {math.floor(output.y)}`
+    if output.name == target then
+      position = ` --position {math.floor(output.x)} {math.floor(output.y)} --output={shellQuote(output.name)}`
       break
     end
+  end
+  if target and target ~= "" and position == "" then
+    noctalia.notifyError(noctalia.tr("messages.draw_monitor_unavailable", { name = target }))
+    return
   end
   local directory = shellQuote(screenshotDir())
   local pattern = shellQuote(cfg("filename-format") or "%Y-%m-%d_%H-%M-%S")
@@ -969,7 +990,8 @@ end
 
 local HANDLERS = {
   colorPicker = runColorPicker, ocr = runOcr, qr = runQr, palette = runPalette, lens = runLens, measure = runMeasure,
-  annotate = annotateRegion, annotateFullscreen = annotateFullscreen, annotateWindow = annotateWindow, drawLive = drawLive,
+  annotate = annotateRegion, annotateFullscreen = annotateFullscreen, annotateWindow = annotateWindow,
+  drawLive = drawLive, drawLiveOnMonitor = drawLiveOnMonitor,
   annotateFile = function(payload)
     if type(payload) == "table" and type(payload.path) == "string" and noctalia.fileExists(payload.path) then
       openAnnotator(payload.path)

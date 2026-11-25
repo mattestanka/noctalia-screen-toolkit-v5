@@ -25,7 +25,8 @@
     "share_request_failed": "Upload request failed.",
     "share_unknown_error": "Upload failed with unknown error.",
     "translate_failed": "Translation failed.",
-    "live_draw_failed": "Could not open live drawing."
+    "live_draw_failed": "Could not open live drawing.",
+    "draw_monitor_unavailable": "Display {name} is no longer available."
   },
   "ocr": {
     "exit_args": "Invalid capture arguments.",
@@ -46,6 +47,9 @@
     "copy_link": "Copy link",
     "copy_text": "Copy text",
     "discard": "Discard",
+    "draw_interactive": "Interactive drawing on one monitor",
+    "draw_native": "Noctalia toolbar (all monitors)",
+    "draw_native_hint": "Click Freeze, then Save to capture your drawing.",
     "empty": "Pick a tool. Results appear here.",
     "format_copied": "{label} copied.",
     "history": "History",

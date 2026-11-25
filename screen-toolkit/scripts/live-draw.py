@@ -310,8 +310,11 @@ class LiveDraw:
         command = ["grim"]
         if self.args.cursor:
             command.append("-c")
-        command += ["-g", f"{rect.x},{rect.y} {rect.width}x{rect.height}",
-                    str(Path(self.capture.name) / "capture.png")]
+        if self.args.output:
+            command += ["-o", self.args.output]
+        else:
+            command += ["-g", f"{rect.x},{rect.y} {rect.width}x{rect.height}"]
+        command.append(str(Path(self.capture.name) / "capture.png"))
         try:
             self.process = Gio.Subprocess.new(command, Gio.SubprocessFlags.STDERR_PIPE)
             self.process.communicate_utf8_async(None, None, self.capture_finished)
@@ -367,6 +370,7 @@ def main():
     parser.add_argument("--directory", type=Path, required=True)
     parser.add_argument("--pattern", default="%Y-%m-%d_%H-%M-%S")
     parser.add_argument("--position", nargs=2, type=int, metavar=("X", "Y"))
+    parser.add_argument("--output")
     parser.add_argument("--cursor", action="store_true")
     args = parser.parse_args()
 
@@ -376,14 +380,17 @@ def main():
     if shutil.which("grim") is None:
         raise SystemExit("ERROR: Draw Live needs grim")
     monitors = [display.get_monitor(i) for i in range(display.get_n_monitors())]
-    monitor = display.get_primary_monitor() or (monitors[0] if monitors else None)
-    for candidate in monitors:
-        rect = candidate.get_geometry()
-        if args.position == [rect.x, rect.y]:
-            monitor = candidate
-            break
+    if args.position is None:
+        monitor = display.get_primary_monitor() or (monitors[0] if monitors else None)
+    else:
+        monitor = None
+        for candidate in monitors:
+            rect = candidate.get_geometry()
+            if args.position == [rect.x, rect.y]:
+                monitor = candidate
+                break
     if monitor is None:
-        raise SystemExit("ERROR: No display is available for Draw Live")
+        raise SystemExit("ERROR: The selected display is unavailable")
 
     lock_path = Path(GLib.get_user_runtime_dir()) / "screen-toolkit-live-draw.lock"
     with lock_path.open("w") as lock:

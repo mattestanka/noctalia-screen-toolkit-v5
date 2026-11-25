@@ -39,9 +39,8 @@ continues the Mango/NVIDIA fixes from the mattestanka v4 fork.
   canvas, rounded toolbar groups and clearer selection colors while retaining
   your Satty brushes, palette, fonts and shortcuts. Your
   existing Satty and GTK configuration files are not modified.
-- Draw Live uses a transparent Wayland overlay over the focused monitor.
-  Switch between drawing and interacting with the apps underneath, and save
-  screenshots with the drawing while the desktop keeps updating.
+- Draw Live offers the original Noctalia toolbar on all monitors, plus an interactive
+  overlay on a monitor you choose. Both can save screenshots with the drawing.
 
 ## Plugin
 
@@ -172,13 +171,16 @@ not expose a portable cursor flag, so its behavior depends on the compositor.
   **Markup Window** freezes first too: click a visible Mango window to crop its
   client geometry from the snapshot. **Markup FS** captures the focused monitor.
 - **Draw Live** is in the standard markup row and the legacy Markup subpanel.
-  Use the pen, highlighter, or shapes on the focused monitor, then click
-  **Interact** to use the apps underneath while your ink stays visible.
-  Click **Draw** to resume drawing. Click **Screenshot** in either mode, or press
-  **Ctrl+S** in Draw mode, to save a PNG
-  of the monitor and your ink to the plugin's screenshot folder. The toolbar
-  is hidden from the capture. Use the close button, or **Escape** in Draw mode,
-  to exit.
+  - **Noctalia toolbar (all monitors)** opens the original toolbar on every
+    monitor. Draw on the screen you want, click **Freeze**, then
+    click **Save** on that monitor to save the desktop and your ink as a PNG.
+  - **Interactive drawing on one monitor** opens the overlay on the output you
+    select. Click **Interact** to use apps with your ink still visible and
+    **Draw** to resume drawing. Click **Screenshot** in either mode, or use
+    **Ctrl+S** in Draw mode. The PNG includes the desktop and ink, and the toolbar
+    is hidden from the capture.
+  Both modes save to the plugin's screenshot folder on Noctalia 5.4 and later.
+  On Noctalia 5.2–5.3, the native toolbar uses Noctalia's screenshot settings.
 - **Measure** reports the region's pixel size and copies it to the clipboard.
 - **OCR** extracts text and copies it to the clipboard. The result includes the
   capture preview and an editable multiline text area, so you can correct, trim,
@@ -282,7 +284,8 @@ Summary of every service command:
 | `annotate` | — | Open a region in the annotation editor |
 | `annotateFullscreen` | — | Annotate the full screen |
 | `annotateWindow` | — | Select and annotate a frozen Mango window |
-| `drawLive` | — | Draw over the live desktop and save screenshots with the ink |
+| `drawLive` | — | Open Noctalia's live drawing toolbar on all monitors |
+| `drawLiveOnMonitor` | Output connector, e.g. `DP-1` | Open interactive drawing on a specific monitor |
 | `record` | — | Record a region as MP4 (default) |
 | `recordGif` | — | Record a region as GIF |
 | `recordMp4` | — | Record a region as MP4 |
