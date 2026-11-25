@@ -26,6 +26,7 @@ local SCRIPT_LENS = noctalia.pluginDir() .. "/scripts/lens-upload.sh"
 local SCRIPT_RECORD = noctalia.pluginDir() .. "/scripts/record.sh"
 local SCRIPT_SHARE = noctalia.pluginDir() .. "/scripts/share-upload.sh"
 local SCRIPT_PICKER = noctalia.pluginDir() .. "/scripts/color-picker.sh"
+local SCRIPT_LIVE_DRAW = noctalia.pluginDir() .. "/scripts/live-draw.py"
 
 local COLOR_PNG = "/tmp/screen-toolkit-colorpicker.png"
 local QR_PNG = "/tmp/screen-toolkit-qr.png"
@@ -48,7 +49,7 @@ local function trim(s)
 end
 
 local function shellQuote(value)
-  return "'" .. tostring(value):gsub("'", [["'"']]) .. "'"
+  return "'" .. tostring(value):gsub("'", [['"'"']]) .. "'"
 end
 
 local function copyFileUri(path)
@@ -561,11 +562,24 @@ local function annotateWindow()
 end
 
 local function drawLive()
-  -- Native annotation starts transparent; the background keeps updating.
-  -- The user can explicitly freeze it later with F or the Freeze button.
-  noctalia.runAsync("noctalia msg panel-close >/dev/null; sleep 0.3; noctalia msg annotate", function(res)
-    if res.exitCode ~= 0 then
-      noctalia.notifyError(trim(res.stderr or "") ~= "" and trim(res.stderr) or noctalia.tr("messages.live_draw_failed"))
+  local position = ""
+  local focused = noctalia.focusedOutputName()
+  for _, output in ipairs(noctalia.outputs() or {}) do
+    if output.name == focused then
+      position = ` --position {math.floor(output.x)} {math.floor(output.y)}`
+      break
+    end
+  end
+  local directory = shellQuote(screenshotDir())
+  local pattern = shellQuote(cfg("filename-format") or "%Y-%m-%d_%H-%M-%S")
+  local cursor = if cursorHidden then "" else " --cursor"
+  local command = `noctalia msg panel-close >/dev/null; sleep 0.3; exec /usr/bin/python3 {shellQuote(SCRIPT_LIVE_DRAW)} --directory={directory} --pattern={pattern}{position}{cursor} 2>&1`
+  noctalia.runStream(command, function(line)
+    local detail = tostring(line):match("^ERROR:%s*(.+)$")
+    if detail then
+      noctalia.notifyError(noctalia.tr("messages.live_draw_failed") .. " " .. detail)
+    else
+      log(line)
     end
   end)
 end

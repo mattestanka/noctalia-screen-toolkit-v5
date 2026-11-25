@@ -8,7 +8,7 @@
 
 id = "mattestanka/screen-toolkit"
 name = "Screen Toolkit"
-version = "1.4.1"
+version = "1.5.0"
 plugin_api = 13
 author = "mattestanka"
 license = "MIT"

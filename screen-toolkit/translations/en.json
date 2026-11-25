@@ -25,7 +25,7 @@
     "share_request_failed": "Upload request failed.",
     "share_unknown_error": "Upload failed with unknown error.",
     "translate_failed": "Translation failed.",
-    "live_draw_failed": "Could not open live drawing. This tool requires Noctalia 5.2 or newer."
+    "live_draw_failed": "Could not open live drawing."
   },
   "ocr": {
     "exit_args": "Invalid capture arguments.",
@@ -208,7 +208,7 @@
     "qr": "Scan a QR or barcode",
     "record": "Record a screen region as GIF or MP4",
     "record_fullscreen": "Record the entire screen",
-    "draw_live": "Draw over the live desktop without freezing it"
+    "draw_live": "Draw over running apps and save a screenshot with your ink"
   },
   "widget": {
     "recording": "Recording — click to stop",
